@@ -58,6 +58,7 @@ export default function OSOrdensView({
   const [search, setSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('Todos');
   const [categoryFilter, setCategoryFilter] = useState('Todos');
+  const [statusFilter, setStatusFilter] = useState('Todos');
   
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -71,6 +72,9 @@ export default function OSOrdensView({
 
   // Archive state
   const [openMonth, setOpenMonth] = useState<string | null>(null);
+
+  // Print type state
+  const [printType, setPrintType] = useState<'single' | 'report' | null>(null);
 
   // Add Form state
   const [selectedEquipId, setSelectedEquipId] = useState(equipamentos[0]?.id || '');
@@ -164,26 +168,25 @@ export default function OSOrdensView({
                             o.problemDescription.toLowerCase().includes(search.toLowerCase());
       const matchesPriority = priorityFilter === 'Todos' || o.priority === priorityFilter;
       const matchesCategory = categoryFilter === 'Todos' || o.category === categoryFilter;
-      return matchesSearch && matchesPriority && matchesCategory;
+      const matchesStatus = activeSubTab === 'arquivo' || statusFilter === 'Todos' || o.status === statusFilter;
+      return matchesSearch && matchesPriority && matchesCategory && matchesStatus;
     });
-  }, [ordens, activeSubTab, search, priorityFilter, categoryFilter]);
+  }, [ordens, activeSubTab, search, priorityFilter, categoryFilter, statusFilter]);
 
   // Unique categories list
   const categories = ['Todos', 'Elétrico', 'Manutenção', 'Mobiliário', 'Informático'];
 
   // Handle opening New OS form
   const handleOpenAdd = () => {
-    if (equipamentos.length === 0) {
-      alert('Cadastre um equipamento antes de criar uma Ordem de Serviço!');
-      return;
-    }
-    const firstEquip = equipamentos[0];
-    setSelectedEquipId(firstEquip.id);
+    const hasEquip = equipamentos.length > 0;
+    const firstEquip = hasEquip ? equipamentos[0] : null;
+
+    setSelectedEquipId(firstEquip ? firstEquip.id : 'none');
     setAddTitle('');
     setProblemDescription('');
-    setAddCategory(firstEquip.category);
+    setAddCategory(firstEquip ? firstEquip.category : '');
     setPriority('media');
-    setAddLocation(firstEquip.location);
+    setAddLocation(firstEquip ? firstEquip.location : '');
     setAddRequester('');
     setAddObservations('');
     setAddPhotoUrl('');
@@ -195,6 +198,7 @@ export default function OSOrdensView({
 
   const handleAddEquipChange = (equipId: string) => {
     setSelectedEquipId(equipId);
+    if (equipId === 'none') return;
     const equip = equipamentos.find(eq => eq.id === equipId);
     if (equip) {
       setAddCategory(equip.category);
@@ -210,20 +214,23 @@ export default function OSOrdensView({
     }
 
     const equip = equipamentos.find(eq => eq.id === selectedEquipId);
-    if (!equip) return;
+    const equipIdVal = equip ? equip.id : 'none';
+    const equipNameVal = equip ? equip.name : 'Sem Equipamento Vinculado';
+    const finalCategory = addCategory.trim() || (equip ? equip.category : 'Geral');
+    const finalLocation = addLocation.trim() || (equip ? equip.location : 'Geral');
 
     onAddOS({
       title: addTitle.trim(),
-      equipId: equip.id,
-      equipName: equip.name,
-      category: addCategory.trim() || equip.category,
+      equipId: equipIdVal,
+      equipName: equipNameVal,
+      category: finalCategory,
       problemDescription: problemDescription.trim(),
       status: 'aberto',
       priority,
       responsible: responsible.trim(),
       openingDate: new Date().toLocaleDateString('pt-BR'),
       cost: Number(cost) || 0,
-      location: addLocation.trim() || equip.location,
+      location: finalLocation,
       requester: addRequester.trim(),
       observations: addObservations.trim(),
       photoUrl: addPhotoUrl
@@ -278,6 +285,14 @@ export default function OSOrdensView({
   };
 
   const handleEditEquipChange = (equipId: string) => {
+    if (equipId === 'none' && editingOS) {
+      setEditingOS({
+        ...editingOS,
+        equipId: 'none',
+        equipName: 'Sem Equipamento Vinculado'
+      });
+      return;
+    }
     const equip = equipamentos.find(eq => eq.id === equipId);
     if (equip && editingOS) {
       setEditingOS({
@@ -421,7 +436,7 @@ export default function OSOrdensView({
         <div className="space-y-4 text-left no-print">
           
           {/* Header Action Row */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-black/10 p-3 rounded-xl border border-white/5">
             <div>
               <h2 className="text-lg font-bold flex items-center gap-2 text-white capitalize">
                 <span className="w-1 h-5 bg-[#f5c518] rounded-full"></span>
@@ -429,13 +444,24 @@ export default function OSOrdensView({
               </h2>
               <p className="text-[11px] text-[#a1a1aa] mt-1 ml-3">Total de {currentOrdens.length} registros listados</p>
             </div>
+            <button
+              onClick={() => {
+                setPrintType('report');
+                setTimeout(() => window.print(), 100);
+              }}
+              className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-md"
+              title="Exportar a lista atual como PDF / Relatório Imprimível"
+            >
+              <Printer size={14} className="text-[#f5c518]" />
+              Exportar PDF / Relatório
+            </button>
           </div>
 
           {/* Filters Bar */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-[#18181b] p-3 rounded-xl border border-white/10 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-[#18181b] p-3 rounded-xl border border-white/10 text-xs">
             
             {/* Search */}
-            <div className="md:col-span-2 relative">
+            <div className="sm:col-span-2 lg:col-span-2 relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
               <input
                 type="text"
@@ -444,6 +470,20 @@ export default function OSOrdensView({
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full bg-[#0a0a0c] border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#f5c518] placeholder-gray-500"
               />
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full bg-[#0a0a0c] border border-white/10 rounded-lg px-2.5 py-1.5 text-gray-300 focus:outline-none focus:border-[#f5c518]"
+              >
+                <option value="Todos">Todos os Status</option>
+                <option value="aberto">Aberto</option>
+                <option value="em_andamento">Em Andamento</option>
+                <option value="concluido">Concluído</option>
+              </select>
             </div>
 
             {/* Priority Filter */}
@@ -591,6 +631,7 @@ export default function OSOrdensView({
                             <button
                               onClick={() => {
                                 setSelectedOS(os);
+                                setPrintType('single');
                                 setTimeout(() => window.print(), 100);
                               }}
                               className="p-1.5 text-gray-400 hover:text-[#f5c518] hover:bg-white/5 rounded transition-all cursor-pointer"
@@ -613,14 +654,27 @@ export default function OSOrdensView({
       {/* RENDER ACTIVE TAB: Arquivo (Organizado por Mês) */}
       {activeSubTab === 'arquivo' && (
         <div className="space-y-6 text-left no-print">
-          <div>
-            <h2 className="text-lg font-bold flex items-center gap-2 text-white">
-              <span className="w-1 h-6 bg-[#f5c518] rounded-full"></span>
-              Arquivo Histórico Mensal
-            </h2>
-            <p className="text-xs text-[#a1a1aa] mt-1 ml-3">
-              Ordens de serviço arquivadas agrupadas cronologicamente por mês de registro para prestação de contas
-            </p>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-black/10 p-3 rounded-xl border border-white/5">
+            <div>
+              <h2 className="text-lg font-bold flex items-center gap-2 text-white">
+                <span className="w-1 h-6 bg-[#f5c518] rounded-full"></span>
+                Arquivo Histórico Mensal
+              </h2>
+              <p className="text-xs text-[#a1a1aa] mt-1 ml-3">
+                Ordens de serviço arquivadas agrupadas cronologicamente por mês de registro para prestação de contas
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setPrintType('report');
+                setTimeout(() => window.print(), 100);
+              }}
+              className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-md shrink-0"
+              title="Exportar a lista atual de arquivados como PDF / Relatório Imprimível"
+            >
+              <Printer size={14} className="text-[#f5c518]" />
+              Exportar PDF / Relatório
+            </button>
           </div>
 
           {Object.keys(archivedByMonth).length === 0 ? (
@@ -951,6 +1005,7 @@ export default function OSOrdensView({
                     onChange={(e) => handleAddEquipChange(e.target.value)}
                     className="w-full bg-[#0a0a0c] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f5c518] transition-all"
                   >
+                    <option value="none">-- Sem Equipamento Vinculado --</option>
                     {equipamentos.map(eq => (
                       <option key={eq.id} value={eq.id}>{eq.name} ({eq.location})</option>
                     ))}
@@ -1239,6 +1294,7 @@ export default function OSOrdensView({
                     onChange={(e) => handleEditEquipChange(e.target.value)}
                     className="w-full bg-[#0a0a0c] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f5c518] transition-all"
                   >
+                    <option value="none">-- Sem Equipamento Vinculado --</option>
                     {equipamentos.map(eq => (
                       <option key={eq.id} value={eq.id}>{eq.name} ({eq.location})</option>
                     ))}
@@ -1618,7 +1674,8 @@ export default function OSOrdensView({
             <div className="p-4 bg-black/20 border-t border-white/5 flex justify-end gap-3 shrink-0">
               <button
                 onClick={() => {
-                  window.print();
+                  setPrintType('single');
+                  setTimeout(() => window.print(), 100);
                 }}
                 className="px-4 py-2 rounded-lg text-xs font-bold text-black bg-[#f5c518] hover:bg-amber-400 flex items-center gap-2 transition-all cursor-pointer"
               >
@@ -1631,93 +1688,6 @@ export default function OSOrdensView({
               >
                 Fechar Ficha
               </button>
-            </div>
-
-            {/* Hidden Print Content */}
-            <div className="print-only fixed inset-0 bg-white text-black p-12 font-sans">
-                <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-8">
-                  <div className="flex items-center gap-4">
-                    <img src="https://i.imgur.com/4XiztTt.png" alt="Logo" className="w-16 h-12 object-contain" referrerPolicy="no-referrer" />
-                    <div>
-                      <h1 className="text-xl font-bold uppercase tracking-tight">{schoolName}</h1>
-                      <p className="text-[10px] font-bold text-gray-600 uppercase">Sistema de Gestão de Manutenção Preventiva e Corretiva</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="bg-black text-white px-4 py-1 font-bold text-sm">ORDEM DE SERVIÇO</div>
-                    <div className="text-lg font-mono font-bold mt-1">#{selectedOS.id}</div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-y-6 gap-x-12 mb-8 text-left">
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Título da OS</span>
-                    <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.title}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Equipamento</span>
-                    <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.equipName}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Local / Sala</span>
-                    <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.location || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Categoria</span>
-                    <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.category}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Data de Abertura</span>
-                    <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.openingDate}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Prioridade</span>
-                    <p className="text-sm font-bold border-b border-gray-200 pb-1 uppercase">{selectedOS.priority}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Solicitante</span>
-                    <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.requester || '---'}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Técnico Responsável</span>
-                    <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.responsible}</p>
-                  </div>
-                </div>
-
-                <div className="mb-8 text-left">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block mb-2">Descrição do Problema / Solicitação</span>
-                  <div className="border border-gray-200 p-4 bg-gray-50 min-h-[100px] text-sm leading-relaxed">
-                    {selectedOS.problemDescription}
-                  </div>
-                </div>
-
-                {selectedOS.observations && (
-                  <div className="mb-8 text-left">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase block mb-2">Observações Técnicas</span>
-                    <div className="border border-gray-200 p-4 text-sm leading-relaxed italic">
-                      {selectedOS.observations}
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-12 mt-20">
-                  <div className="text-center">
-                    <div className="border-t border-black pt-2">
-                      <p className="text-[10px] font-bold uppercase">{selectedOS.responsible}</p>
-                      <p className="text-[9px] text-gray-500 uppercase">Assinatura do Técnico</p>
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="border-t border-black pt-2">
-                      <p className="text-[10px] font-bold uppercase">{selectedOS.requester || 'Solicitante'}</p>
-                      <p className="text-[9px] text-gray-500 uppercase">Assinatura do Solicitante / Gestor</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="fixed bottom-12 left-12 right-12 text-center text-[8px] text-gray-400 border-t border-gray-100 pt-4">
-                  Documento gerado eletronicamente via Sistema de Manutenção {schoolName} em {new Date().toLocaleString('pt-BR')}.
-                </div>
             </div>
           </div>
         </div>
@@ -1815,6 +1785,220 @@ export default function OSOrdensView({
                 Sim, Deletar OS
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* GLOBAL HIDDEN PRINT ARCHITECTURES          */}
+      {/* ========================================== */}
+
+      {/* 1. Single OS Print Sheet */}
+      {printType === 'single' && selectedOS && (
+        <div className="print-only fixed inset-0 bg-white text-black p-12 font-sans overflow-visible z-[9999]">
+          <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-8">
+            <div className="flex items-center gap-4">
+              <img src="https://i.imgur.com/4XiztTt.png" alt="Logo" className="w-16 h-12 object-contain" referrerPolicy="no-referrer" />
+              <div>
+                <h1 className="text-xl font-bold uppercase tracking-tight">{schoolName}</h1>
+                <p className="text-[10px] font-bold text-gray-600 uppercase">Sistema de Gestão de Manutenção Preventiva e Corretiva</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="bg-black text-white px-4 py-1 font-bold text-sm">ORDEM DE SERVIÇO</div>
+              <div className="text-lg font-mono font-bold mt-1">#{selectedOS.id}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-y-6 gap-x-12 mb-8 text-left">
+            <div>
+              <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Título da OS</span>
+              <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.title}</p>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Equipamento</span>
+              <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.equipName}</p>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Local / Sala</span>
+              <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.location || 'N/A'}</p>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Categoria</span>
+              <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.category}</p>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Data de Abertura</span>
+              <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.openingDate}</p>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Prioridade</span>
+              <p className="text-sm font-bold border-b border-gray-200 pb-1 uppercase">{selectedOS.priority}</p>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Solicitante</span>
+              <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.requester || '---'}</p>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Técnico Responsável</span>
+              <p className="text-sm font-bold border-b border-gray-200 pb-1">{selectedOS.responsible}</p>
+            </div>
+          </div>
+
+          <div className="mb-8 text-left">
+            <span className="text-[10px] font-bold text-gray-500 uppercase block mb-2">Descrição do Problema / Solicitação</span>
+            <div className="border border-gray-200 p-4 bg-gray-50 min-h-[100px] text-sm leading-relaxed">
+              {selectedOS.problemDescription}
+            </div>
+          </div>
+
+          {selectedOS.observations && (
+            <div className="mb-8 text-left">
+              <span className="text-[10px] font-bold text-gray-500 uppercase block mb-2">Observações Técnicas</span>
+              <div className="border border-gray-200 p-4 text-sm leading-relaxed italic">
+                {selectedOS.observations}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-12 mt-20">
+            <div className="text-center">
+              <div className="border-t border-black pt-2">
+                <p className="text-[10px] font-bold uppercase">{selectedOS.responsible}</p>
+                <p className="text-[9px] text-gray-500 uppercase">Assinatura do Técnico</p>
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="border-t border-black pt-2">
+                <p className="text-[10px] font-bold uppercase">{selectedOS.requester || 'Solicitante'}</p>
+                <p className="text-[9px] text-gray-500 uppercase">Assinatura do Solicitante / Gestor</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="fixed bottom-12 left-12 right-12 text-center text-[8px] text-gray-400 border-t border-gray-100 pt-4">
+            Documento gerado eletronicamente via Sistema de Manutenção {schoolName} em {new Date().toLocaleString('pt-BR')}.
+          </div>
+        </div>
+      )}
+
+      {/* 2. Global Current Table Report (Print-only) */}
+      {printType === 'report' && (
+        <div className="print-only fixed inset-0 bg-white text-black p-10 font-sans text-xs overflow-visible z-[9999]">
+          {/* Header */}
+          <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
+            <div className="flex items-center gap-4">
+              <img src="https://i.imgur.com/4XiztTt.png" alt="Logo" className="w-16 h-12 object-contain" referrerPolicy="no-referrer" />
+              <div>
+                <h1 className="text-lg font-bold uppercase tracking-tight">{schoolName}</h1>
+                <p className="text-[10px] font-bold text-gray-600 uppercase">Sistema de Gestão de Manutenção Preventiva e Corretiva</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="bg-black text-white px-3 py-1 font-bold text-xs uppercase">Relatório de Ordens de Serviço</div>
+              <div className="text-[10px] font-medium text-gray-500 mt-1">
+                Gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          </div>
+
+          {/* Filters Summary */}
+          <div className="bg-gray-100 p-3 rounded mb-6 border border-gray-200">
+            <h3 className="font-bold text-[10px] uppercase text-gray-700 mb-1">Contexto e Filtros do Relatório</h3>
+            <div className="grid grid-cols-5 gap-2 text-[10px]">
+              <div>
+                <span className="text-gray-500 font-semibold block">Busca Ativa:</span>
+                <span className="font-bold">{search || 'Sem filtros de texto'}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 font-semibold block">Status:</span>
+                <span className="font-bold capitalize">{statusFilter === 'Todos' ? 'Todos' : statusFilter === 'em_andamento' ? 'Em Andamento' : statusFilter === 'concluido' ? 'Concluído' : statusFilter}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 font-semibold block">Nível de Prioridade:</span>
+                <span className="font-bold capitalize">{priorityFilter === 'Todos' ? 'Todas' : priorityFilter}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 font-semibold block">Categoria Principal:</span>
+                <span className="font-bold">{categoryFilter === 'Todos' ? 'Todas' : categoryFilter}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 font-semibold block">Seção do Painel:</span>
+                <span className="font-bold uppercase">{activeSubTab === 'arquivo' ? 'Histórico / Arquivo' : 'Ordens de Serviço Ativas'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <table className="w-full text-left text-[9px] border-collapse border border-gray-300">
+            <thead>
+              <tr className="bg-gray-100 text-gray-700 font-bold border-b border-gray-300 uppercase">
+                <th className="p-2 border border-gray-300 w-[60px]">Código</th>
+                <th className="p-2 border border-gray-300">Solicitação / Título</th>
+                <th className="p-2 border border-gray-300">Equipamento</th>
+                <th className="p-2 border border-gray-300 w-[70px]">Categoria</th>
+                <th className="p-2 border border-gray-300 w-[90px]">Local / Sala</th>
+                <th className="p-2 border border-gray-300 w-[70px]">Status</th>
+                <th className="p-2 border border-gray-300 w-[60px]">Prioridade</th>
+                <th className="p-2 border border-gray-300 w-[60px]">Abertura</th>
+                <th className="p-2 text-right border border-gray-300 w-[70px]">Custo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentOrdens.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="p-4 text-center text-gray-500 italic">Nenhum registro encontrado para os filtros selecionados.</td>
+                </tr>
+              ) : (
+                currentOrdens.map((os) => (
+                  <tr key={os.id} className="border-b border-gray-300">
+                    <td className="p-2 font-mono font-bold border border-gray-300">{os.id}</td>
+                    <td className="p-2 border border-gray-300">
+                      <div className="font-bold">{os.title}</div>
+                      <div className="text-[8px] text-gray-600 line-clamp-1">{os.problemDescription}</div>
+                    </td>
+                    <td className="p-2 border border-gray-300">{os.equipName}</td>
+                    <td className="p-2 border border-gray-300">{os.category}</td>
+                    <td className="p-2 border border-gray-300">{os.location || 'Geral'}</td>
+                    <td className="p-2 border border-gray-300 capitalize text-[8px]">
+                      {os.status === 'em_andamento' ? 'Em Andamento' : os.status === 'concluido' ? 'Concluída' : os.status === 'arquivado' ? 'Arquivada' : 'Aberto'}
+                    </td>
+                    <td className="p-2 border border-gray-300 uppercase font-semibold">{os.priority}</td>
+                    <td className="p-2 border border-gray-300">{os.openingDate}</td>
+                    <td className="p-2 text-right font-mono border border-gray-300">
+                      R$ {os.cost.toFixed(2)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="bg-gray-100 font-bold text-gray-800">
+                <td colSpan={7} className="p-2 text-right border border-gray-300 uppercase text-[8px]">Total de Registros: {currentOrdens.length}</td>
+                <td className="p-2 text-right border border-gray-300 uppercase text-[8px]">Custo Total:</td>
+                <td className="p-2 text-right font-mono border border-gray-300 text-[10px]">
+                  R$ {currentOrdens.reduce((sum, os) => sum + os.cost, 0).toFixed(2)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+
+          {/* Signatures */}
+          <div className="grid grid-cols-2 gap-12 mt-16">
+            <div className="text-center">
+              <div className="border-t border-black pt-2">
+                <p className="text-[9px] font-bold uppercase">Supervisor de Manutenção</p>
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="border-t border-black pt-2">
+                <p className="text-[9px] font-bold uppercase">Direção / Administração escolar</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="fixed bottom-10 left-10 right-10 text-center text-[8px] text-gray-400 border-t border-gray-100 pt-4">
+            Documento gerado eletronicamente via Sistema de Manutenção {schoolName} em {new Date().toLocaleString('pt-BR')}.
           </div>
         </div>
       )}

@@ -28,7 +28,8 @@ import {
   ChamadoSuporte, 
   LogAuditoria, 
   Funcionario,
-  Emprestimo 
+  Emprestimo,
+  Necessidade
 } from './types';
 
 import { 
@@ -51,6 +52,7 @@ import OSConfiguracoes from './components/OSConfiguracoes';
 import OSFuncionarios from './components/OSFuncionarios';
 import UserManagement from './components/UserManagement';
 import Login from './components/Login';
+import OSNecessidades from './components/OSNecessidades';
 
 export default function App() {
   // Theme & Collapse
@@ -92,6 +94,7 @@ export default function App() {
   const [logs, setLogs] = useState<LogAuditoria[]>([]);
   const [logsFuncionarios, setLogsFuncionarios] = useState<LogAuditoria[]>([]);
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
+  const [necessidades, setNecessidades] = useState<Necessidade[]>([]);
 
   // Notifications drawer state
   const [showNotifications, setShowNotifications] = useState(false);
@@ -125,6 +128,8 @@ export default function App() {
     const cachedLogs = getLocalStorageData<LogAuditoria[]>('auditoria', []);
     const cachedLogsFuncionarios = getLocalStorageData<LogAuditoria[]>('auditoria_funcionarios', []);
     const cachedEmprestimos = getLocalStorageData<Emprestimo[]>('emprestimos', []);
+    const cachedNecessidades = getLocalStorageData<Necessidade[]>('necessidades', [])
+      .filter(n => n.id !== 'NEC-001' && n.id !== 'NEC-002' && n.id !== 'NEC-003' && n.id !== 'NEC-EX-001');
 
     setUsers(cachedUsers);
     setOrdens(cachedOrdens);
@@ -134,6 +139,7 @@ export default function App() {
     setLogs(cachedLogs);
     setLogsFuncionarios(cachedLogsFuncionarios);
     setEmprestimos(cachedEmprestimos);
+    setNecessidades(cachedNecessidades);
 
     // Asynchronously verify against IndexedDB or Firestore to recover/sync
     const syncDataWithRemote = async () => {
@@ -172,6 +178,17 @@ export default function App() {
             }
           } catch (configErr) {
             console.warn('[Remote Sync] Error synchronizing school configuration:', configErr);
+          }
+
+          // Force-delete pre-existing example/mock items from Firestore to clean up section
+          try {
+            const mockIds = ['NEC-001', 'NEC-002', 'NEC-003', 'NEC-EX-001'];
+            for (const idToDel of mockIds) {
+              await FirebaseService.necessidades.delete(idToDel).catch(() => {});
+            }
+            console.log('[Remote Sync] Force-deleted legacy mock necessities from Firestore.');
+          } catch (delErr) {
+            console.warn('[Remote Sync] Failed to delete mock necessities:', delErr);
           }
         }
 
@@ -230,6 +247,7 @@ export default function App() {
         await syncCollection('auditoria', cachedLogs, setLogs);
         await syncCollection('auditoria_funcionarios', cachedLogsFuncionarios, setLogsFuncionarios);
         await syncCollection('emprestimos', cachedEmprestimos, setEmprestimos);
+        await syncCollection('necessidades', cachedNecessidades, setNecessidades);
       } catch (e) {
         console.warn('[Data Sync] Error during remote/local synchronization:', e);
       }
@@ -305,6 +323,12 @@ export default function App() {
           setEmprestimos(data);
           localStorage.setItem(dbPrefix + 'emprestimos', JSON.stringify(data));
         }
+      }),
+      FirebaseService.necessidades.subscribe((data) => {
+        if (data) {
+          setNecessidades(data);
+          localStorage.setItem(dbPrefix + 'necessidades', JSON.stringify(data));
+        }
       })
     ];
 
@@ -352,6 +376,11 @@ export default function App() {
   const saveAndSetEmprestimos = (newLoans: Emprestimo[]) => {
     setEmprestimos(newLoans);
     setLocalStorageData('emprestimos', newLoans);
+  };
+
+  const saveAndSetNecessidades = (newNeeds: Necessidade[]) => {
+    setNecessidades(newNeeds);
+    setLocalStorageData('necessidades', newNeeds);
   };
 
   const isGuest = user?.role === 'guest';
@@ -403,6 +432,8 @@ export default function App() {
     }
   ];
 
+  const MOCK_NECESSIDADES: Necessidade[] = [];
+
   // Display data based on guest status
   const displayOrdens = useMemo(() => isGuest ? MOCK_ORDENS : ordens, [isGuest, ordens]);
   const displayEquipamentos = useMemo(() => isGuest ? MOCK_EQUIPAMENTOS : equipamentos, [isGuest, equipamentos]);
@@ -411,6 +442,7 @@ export default function App() {
   const displayLogs = useMemo(() => isGuest ? [] : logs, [isGuest, logs]);
   const displayLogsFuncionarios = useMemo(() => isGuest ? [] : logsFuncionarios, [isGuest, logsFuncionarios]);
   const displayEmprestimos = useMemo(() => isGuest ? [] : emprestimos, [isGuest, emprestimos]);
+  const displayNecessidades = useMemo(() => isGuest ? MOCK_NECESSIDADES : necessidades, [isGuest, necessidades]);
   const displayUsers = useMemo(() => isGuest ? [] : users, [isGuest, users]);
 
   // Push new event into Audit Log
@@ -767,6 +799,109 @@ export default function App() {
     }
   };
 
+  // Mutator actions: NECESSIDADES
+  const handleAddNecessidade = (nec: Omit<Necessidade, 'id' | 'openingDate'>) => {
+    if (isGuest) return;
+
+    setNecessidades(prev => {
+      let seq = 101;
+      if (prev.length > 0) {
+        seq = Math.max(...prev.map(n => {
+          const num = parseInt(n.id.split('-')[1]);
+          return isNaN(num) ? 0 : num;
+        })) + 1;
+      }
+      let nextId = `NEC-0${seq}`;
+      while (prev.some(n => n.id === nextId)) {
+        seq++;
+        nextId = `NEC-0${seq}`;
+      }
+
+      const newNeed: Necessidade = {
+        id: nextId,
+        ...nec,
+        openingDate: new Date().toLocaleDateString('pt-BR')
+      };
+
+      const updated = [newNeed, ...prev];
+      setLocalStorageData('necessidades', updated);
+      OfflineQueueService.enqueue('CREATE', 'necessidades', nextId, newNeed);
+      
+      // Dynamic notification trigger
+      setNotifications(n => [
+        { id: Date.now(), text: `Novo pedido de material registrado: ${nec.itemName} (${nec.quantity} un).`, time: 'Agora mesmo', read: false },
+        ...n
+      ]);
+
+      setTimeout(() => {
+        handleAddAuditLog('Registro de Necessidade', 'sistema', nextId, `Registrou pedido de material: ${nec.itemName} (${nec.quantity} un) para o setor ${nec.department}`);
+      }, 50);
+
+      return updated;
+    });
+  };
+
+  const handleUpdateNecessidade = (nec: { id: string; itemName: string; category: string; quantity: number; priority: any; requester: string; department: string; status: any; openingDate: string; closingDate?: string; estimatedCost: number; observations?: string }) => {
+    if (isGuest) return;
+    let oldNeed: any = null;
+    
+    setNecessidades(prev => {
+      oldNeed = prev.find(n => n.id === nec.id);
+      const updated = prev.map(n => n.id === nec.id ? (nec as Necessidade) : n);
+      setLocalStorageData('necessidades', updated);
+      OfflineQueueService.enqueue('UPDATE', 'necessidades', nec.id, nec);
+
+      // Notify if status has changed
+      if (oldNeed && oldNeed.status !== nec.status) {
+        let statusString = 'Pendente';
+        if (nec.status === 'em_cotacao') statusString = 'Em Cotação';
+        else if (nec.status === 'aprovado') statusString = 'Aprovado para Compra';
+        else if (nec.status === 'comprado') statusString = 'Comprado e Recebido';
+        else if (nec.status === 'rejeitado') statusString = 'Rejeitado';
+
+        setNotifications(n => [
+          { id: Date.now(), text: `O status do pedido ${nec.id} (${nec.itemName}) foi atualizado para: ${statusString}.`, time: 'Agora mesmo', read: false },
+          ...n
+        ]);
+      }
+      return updated;
+    });
+
+    // We can run log update asynchronously
+    setTimeout(() => {
+      if (oldNeed && oldNeed.status !== nec.status) {
+        handleAddAuditLog('Atualização de Status de Necessidade', 'sistema', nec.id, `Status do pedido ${nec.id} (${nec.itemName}) alterado para ${nec.status} por ${user?.name}`);
+      } else {
+        handleAddAuditLog('Edição de Necessidade', 'sistema', nec.id, `Editou dados do pedido de material ${nec.id}: ${nec.itemName}`);
+      }
+    }, 50);
+  };
+
+  const handleDeleteNecessidade = (id: string) => {
+    if (isGuest) return;
+    let needToDelete: any = null;
+
+    setNecessidades(prev => {
+      needToDelete = prev.find(n => n.id === id);
+      if (!needToDelete) return prev;
+      const updated = prev.filter(n => n.id !== id);
+      setLocalStorageData('necessidades', updated);
+      OfflineQueueService.enqueue('DELETE', 'necessidades', id, null);
+      
+      setNotifications(n => [
+        { id: Date.now(), text: `O pedido de material ${id} (${needToDelete.itemName}) foi removido.`, time: 'Agora mesmo', read: false },
+        ...n
+      ]);
+      return updated;
+    });
+
+    setTimeout(() => {
+      if (needToDelete) {
+        handleAddAuditLog('Exclusão de Necessidade', 'sistema', id, `Removeu o pedido de material ${id}: ${needToDelete.itemName}`);
+      }
+    }, 50);
+  };
+
   // Unread notification badge count
   const unreadNotificationsCount = useMemo(() => {
     return notifications.filter(n => !n.read).length;
@@ -782,6 +917,7 @@ export default function App() {
       case 'os': return 'Ordens de Serviço';
       case 'equipamentos': return 'Equipamentos';
       case 'suporte': return 'Suporte Técnico';
+      case 'necessidades': return 'Necessidades & Requisições';
       case 'auditoria': return 'Auditoria';
       case 'funcionarios': return 'Funcionários';
       case 'usuarios': return 'Gestão de Usuários';
@@ -795,6 +931,7 @@ export default function App() {
       case 'os': return 'Gerencie ordens, relatórios e arquivos';
       case 'equipamentos': return 'Gerencie inventário, localização e status de ativos';
       case 'suporte': return 'Gerencie chamados e chamados de suporte técnico de TI';
+      case 'necessidades': return 'Gerencie requisições de suprimentos, compras e almoxarifado';
       case 'auditoria': return 'Visualize o histórico de alterações gerais de segurança';
       case 'funcionarios': return 'Gerencie escalas de ponto, contratações e dados cadastrais';
       case 'usuarios': return 'Controle de acessos, níveis de permissão e novos usuários';
@@ -1027,6 +1164,17 @@ export default function App() {
                 onUpdateChamado={handleUpdateChamado}
                 onDeleteChamado={handleDeleteChamado}
                 currentUserEmail={user.email}
+              />
+            )}
+
+            {/* Section: Necessidades & Requisições */}
+            {activeSection === 'necessidades' && (
+              <OSNecessidades 
+                necessidades={displayNecessidades}
+                user={user}
+                onAddNecessidade={handleAddNecessidade}
+                onUpdateNecessidade={handleUpdateNecessidade}
+                onDeleteNecessidade={handleDeleteNecessidade}
               />
             )}
 

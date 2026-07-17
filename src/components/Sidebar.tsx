@@ -14,7 +14,8 @@ import {
   LogOut, 
   Menu, 
   X,
-  User
+  User,
+  ClipboardList
 } from 'lucide-react';
 import { UserSession } from '../types';
 
@@ -64,6 +65,7 @@ export default function Sidebar({
     { id: 'os', label: 'Ordens de Serviço', icon: FileText },
     { id: 'equipamentos', label: 'Equipamentos', icon: Package },
     { id: 'suporte', label: 'Suporte Técnico', icon: Headphones },
+    { id: 'necessidades', label: 'Necessidades', icon: ClipboardList },
     { id: 'auditoria', label: 'Auditoria', icon: ShieldCheck },
     { id: 'funcionarios', label: 'Funcionários', icon: Users, restrictedEmails: ['colinaadm201@gmail.com', 'arthurrfgomes@gmail.com'] },
     { id: 'usuarios', label: 'Usuários', icon: ShieldCheck, restricted: true },

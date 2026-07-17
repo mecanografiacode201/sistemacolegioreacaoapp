@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Settings, School, User, Lock, Save, Key } from 'lucide-react';
+import { Settings, School, User, Lock, Save, Key, Database, Download } from 'lucide-react';
 import { UserSession } from '../types';
 import FirebaseService from '../services/FirebaseService';
 
@@ -88,6 +88,62 @@ export default function OSConfiguracoes({
     setPassword('');
     setConfirmPassword('');
     alert('Perfil do usuário atualizado!');
+  };
+
+  const handleExportBackup = () => {
+    try {
+      const backupData: Record<string, any> = {
+        exportedAt: new Date().toISOString(),
+        systemVersion: '1.5.0',
+        schoolConfig: {
+          name: localStorage.getItem('colegio_reacao_school_name') || 'Colégio Reação',
+          email: localStorage.getItem('colegio_reacao_school_email') || 'mecanografia@colegioreacaodf.com',
+          address: localStorage.getItem('colegio_reacao_school_address') || 'QNJ, Taguatinga - DF',
+          phone: localStorage.getItem('colegio_reacao_school_phone') || '(61) 90000-0000',
+        },
+        data: {}
+      };
+
+      const keysToBackup = [
+        'users',
+        'ordens',
+        'equipamentos',
+        'suporte',
+        'funcionarios',
+        'auditoria',
+        'auditoria_funcionarios',
+        'emprestimos',
+        'necessidades'
+      ];
+
+      keysToBackup.forEach((key) => {
+        const value = localStorage.getItem('colegio_reacao_' + key);
+        if (value) {
+          try {
+            backupData.data[key] = JSON.parse(value);
+          } catch {
+            backupData.data[key] = value;
+          }
+        } else {
+          backupData.data[key] = [];
+        }
+      });
+
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.href = url;
+      
+      const formattedDate = new Date().toISOString().slice(0, 10);
+      downloadAnchor.download = `backup_sistema_mecanografia_${formattedDate}.json`;
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      document.body.removeChild(downloadAnchor);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Erro ao gerar o backup:', error);
+      alert('Ocorreu um erro ao exportar o backup. Tente novamente.');
+    }
   };
 
   return (
@@ -246,6 +302,30 @@ export default function OSConfiguracoes({
               </button>
             </div>
           </form>
+        </div>
+      </div>
+
+      {/* Backup and Security */}
+      <div className="bg-[#18181b] p-6 rounded-2xl border border-white/10 space-y-4 text-left">
+        <div className="flex items-center gap-2 pb-4 border-b border-white/5">
+          <Database size={20} className="text-[#f5c518]" />
+          <h2 className="font-bold text-white">Backup e Cópia de Segurança</h2>
+        </div>
+        
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-left">
+          <div className="space-y-1 max-w-2xl">
+            <p className="text-sm text-gray-200 font-medium">Exportar Banco de Dados Local</p>
+            <p className="text-xs text-[#a1a1aa] leading-relaxed">
+              Faça o download de uma cópia de segurança contendo todos os registros locais do sistema de manutenção e ponto de funcionários. O arquivo exportado inclui usuários, ordens de serviço, equipamentos cadastrados, chamados, empréstimos e logs de auditoria no formato <strong>JSON</strong> para armazenamento seguro e auditorias externas.
+            </p>
+          </div>
+          <button
+            onClick={handleExportBackup}
+            className="bg-[#f5c518] hover:bg-amber-400 text-black font-bold text-xs px-5 py-3 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-amber-500/10 shrink-0"
+          >
+            <Download size={16} />
+            Exportar Backup Completo (JSON)
+          </button>
         </div>
       </div>
     </div>

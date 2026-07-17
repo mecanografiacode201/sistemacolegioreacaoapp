@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { OrdemServico, Equipamento, ChamadoSuporte, LogAuditoria, Funcionario, RegistroPonto, User } from './types';
+import { OrdemServico, Equipamento, ChamadoSuporte, LogAuditoria, Funcionario, RegistroPonto, User, Necessidade } from './types';
 
 // Seed initial Equipments
 export const INITIAL_EQUIPAMENTOS: Equipamento[] = [
@@ -50,6 +50,9 @@ export const INITIAL_FUNCIONARIOS: Funcionario[] = [];
 
 // Seed initial Audit Logs
 export const INITIAL_AUDITORIA: LogAuditoria[] = [];
+
+// Seed initial Material Requisitions (Necessidades)
+export const INITIAL_NECESSIDADES: Necessidade[] = [];
 
 // Helper to generate monthly clock-in timesheet records for a given employee & date
 export function generateTimesheetForMonth(employee: Funcionario, year: number, month: number): RegistroPonto[] {
@@ -256,5 +259,8 @@ export function initializeDB() {
   }
   if (!localStorage.getItem(LS_PREFIX + 'auditoria')) {
     setLocalStorageData('auditoria', INITIAL_AUDITORIA);
+  }
+  if (!localStorage.getItem(LS_PREFIX + 'necessidades')) {
+    setLocalStorageData('necessidades', INITIAL_NECESSIDADES);
   }
 }

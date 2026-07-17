@@ -136,3 +136,19 @@ export interface Emprestimo {
   returnSignatureUrl?: string; // Base64 data URL for the return signature
   status: 'ativo' | 'devolvido';
 }
+
+export interface Necessidade {
+  id: string; // Ex: NEC-001
+  itemName: string;
+  category: string; // e.g. "Escritório", "Manutenção", "Limpeza", "TI", "Outros"
+  quantity: number;
+  priority: 'baixa' | 'media' | 'alta' | 'critica';
+  requester: string;
+  department: string;
+  status: 'pendente' | 'em_cotacao' | 'aprovado' | 'comprado' | 'rejeitado';
+  openingDate: string; // dd/mm/aaaa
+  closingDate?: string; // dd/mm/aaaa
+  estimatedCost: number;
+  observations?: string;
+}
+

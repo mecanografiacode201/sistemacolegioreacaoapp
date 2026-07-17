@@ -44,7 +44,8 @@ import {
   Funcionario, 
   RegistroPonto, 
   Emprestimo, 
-  User as AppUser 
+  User as AppUser,
+  Necessidade
 } from '../types';
 
 // ==========================================
@@ -198,6 +199,29 @@ export interface IDatabaseOperations<T> {
   subscribe(callback: (data: T[]) => void, errorCallback?: (error: any) => void, constraints?: QueryConstraint[]): () => void;
 }
 
+function cleanUndefined(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  if (obj instanceof Date) {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined);
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (val !== undefined) {
+        cleaned[key] = cleanUndefined(val);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 function createCollectionService<T extends { id: string }>(collectionName: string): IDatabaseOperations<T> {
   return {
     async list(constraints: QueryConstraint[] = []): Promise<T[]> {
@@ -238,13 +262,14 @@ function createCollectionService<T extends { id: string }>(collectionName: strin
       try {
         const { id, ...dataToSave } = data as any;
         const targetId = customId || id;
+        const cleanedData = cleanUndefined(dataToSave);
 
         if (targetId) {
           const docRef = doc(db, collectionName, targetId);
-          await setDoc(docRef, { ...dataToSave, id: targetId });
+          await setDoc(docRef, { ...cleanedData, id: targetId });
           return targetId;
         } else {
-          const docRef = await addDoc(collection(db, collectionName), dataToSave);
+          const docRef = await addDoc(collection(db, collectionName), cleanedData);
           return docRef.id;
         }
       } catch (error) {
@@ -258,7 +283,8 @@ function createCollectionService<T extends { id: string }>(collectionName: strin
       try {
         const docRef = doc(db, collectionName, id);
         const { id: _, ...dataToUpdate } = data as any;
-        await updateDoc(docRef, dataToUpdate);
+        const cleanedData = cleanUndefined(dataToUpdate);
+        await updateDoc(docRef, cleanedData);
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, path);
       }
@@ -376,6 +402,7 @@ export const FirebaseService = {
   auditoria: createCollectionService<LogAuditoria>('auditoria'),
   pontos: createCollectionService<RegistroPonto>('registro_ponto'),
   emprestimos: createCollectionService<Emprestimo>('emprestimos'),
+  necessidades: createCollectionService<Necessidade>('necessidades'),
   users: createCollectionService<AppUser>('users'),
   settings: createCollectionService<any>('settings')
 };
