@@ -1,0 +1,22 @@
+{
+  "name": "Sistema Colegio Reação",
+  "short_name": "Colegio Reação",
+  "description": "Sistema de Gestão de Ordens de Serviço, Equipamentos e Suporte do Colégio Reação",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "https://i.imgur.com/8RP9DL7.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.imgur.com/8RP9DL7.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
