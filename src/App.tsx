@@ -122,7 +122,8 @@ export default function App() {
     // Load states synchronously from localStorage for instant display
     const cachedUsers = getLocalStorageData<User[]>('users', []);
     const cachedOrdens = getLocalStorageData<OrdemServico[]>('ordens', []);
-    const cachedEquipamentos = getLocalStorageData<Equipamento[]>('equipamentos', []);
+    const cachedEquipamentos = getLocalStorageData<Equipamento[]>('equipamentos', [])
+      .filter(eq => eq.id !== 'EQ-001' && eq.id !== 'EQ-002' && eq.id !== 'EQ-003');
     const cachedChamados = getLocalStorageData<ChamadoSuporte[]>('suporte', []);
     const cachedFuncionarios = getLocalStorageData<Funcionario[]>('funcionarios', []);
     const cachedLogs = getLocalStorageData<LogAuditoria[]>('auditoria', []);
@@ -186,9 +187,13 @@ export default function App() {
             for (const idToDel of mockIds) {
               await FirebaseService.necessidades.delete(idToDel).catch(() => {});
             }
-            console.log('[Remote Sync] Force-deleted legacy mock necessities from Firestore.');
+            const mockEquipIds = ['EQ-001', 'EQ-002', 'EQ-003'];
+            for (const eqId of mockEquipIds) {
+              await FirebaseService.equipamentos.delete(eqId).catch(() => {});
+            }
+            console.log('[Remote Sync] Force-deleted legacy mock necessities and equipment from Firestore.');
           } catch (delErr) {
-            console.warn('[Remote Sync] Failed to delete mock necessities:', delErr);
+            console.warn('[Remote Sync] Failed to delete mock items:', delErr);
           }
         }
 

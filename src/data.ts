@@ -6,38 +6,7 @@
 import { OrdemServico, Equipamento, ChamadoSuporte, LogAuditoria, Funcionario, RegistroPonto, User, Necessidade } from './types';
 
 // Seed initial Equipments
-export const INITIAL_EQUIPAMENTOS: Equipamento[] = [
-  {
-    id: 'EQ-001',
-    name: 'Ar Condicionado Central - Bloco A',
-    category: 'Manutenção',
-    location: 'Telhado / Bloco A',
-    status: 'operacional',
-    acquisitionDate: '10/01/2023',
-    lastMaintenanceDate: '15/05/2024',
-    observations: 'Equipamento em bom estado. Filtros limpos recentemente.'
-  },
-  {
-    id: 'EQ-002',
-    name: 'Projetor Multimídia - Sala 04',
-    category: 'Informático',
-    location: 'Sala 04 / Bloco B',
-    status: 'operacional',
-    acquisitionDate: '05/03/2024',
-    lastMaintenanceDate: '20/06/2024',
-    observations: 'Lâmpada com 150h de uso.'
-  },
-  {
-    id: 'EQ-003',
-    name: 'Quadro Elétrico - Pavimento Térreo',
-    category: 'Elétrico',
-    location: 'Corredor Central',
-    status: 'operacional',
-    acquisitionDate: '15/11/2022',
-    lastMaintenanceDate: '10/04/2024',
-    observations: 'Disjuntores térmicos revisados.'
-  }
-];
+export const INITIAL_EQUIPAMENTOS: Equipamento[] = [];
 
 // Seed initial Orders of Service (OS)
 export const INITIAL_ORDENS: OrdemServico[] = [];
