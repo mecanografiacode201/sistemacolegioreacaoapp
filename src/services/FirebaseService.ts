@@ -47,6 +47,15 @@ import {
   User as AppUser,
   Necessidade
 } from '../types';
+import {
+  MktPlanejamento,
+  MktEstrategia,
+  MktQuadro,
+  MktCalendario,
+  MktIdeia,
+  MktRelatorio,
+  MktMeta
+} from '../marketing/types';
 
 // ==========================================
 // 1. OPERATION TYPES & INTERFACES FOR ERRORS
@@ -400,11 +409,21 @@ export const FirebaseService = {
   suporte: createCollectionService<ChamadoSuporte>('suporte'),
   funcionarios: createCollectionService<Funcionario>('funcionarios'),
   auditoria: createCollectionService<LogAuditoria>('auditoria'),
+  auditoria_funcionarios: createCollectionService<LogAuditoria>('auditoria_funcionarios'),
   pontos: createCollectionService<RegistroPonto>('registro_ponto'),
   emprestimos: createCollectionService<Emprestimo>('emprestimos'),
   necessidades: createCollectionService<Necessidade>('necessidades'),
   users: createCollectionService<AppUser>('users'),
-  settings: createCollectionService<any>('settings')
+  settings: createCollectionService<any>('settings'),
+  
+  // Marketing collections
+  mkt_planejamentos: createCollectionService<MktPlanejamento>('mkt_planejamentos'),
+  mkt_estrategias: createCollectionService<MktEstrategia>('mkt_estrategias'),
+  mkt_quadros: createCollectionService<MktQuadro>('mkt_quadros'),
+  mkt_calendario: createCollectionService<MktCalendario>('mkt_calendario'),
+  mkt_ideias: createCollectionService<MktIdeia>('mkt_ideias'),
+  mkt_relatorios: createCollectionService<MktRelatorio>('mkt_relatorios'),
+  mkt_metas: createCollectionService<MktMeta>('mkt_metas')
 };
 
 export default FirebaseService;

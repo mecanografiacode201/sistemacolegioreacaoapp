@@ -53,6 +53,7 @@ import OSFuncionarios from './components/OSFuncionarios';
 import UserManagement from './components/UserManagement';
 import Login from './components/Login';
 import OSNecessidades from './components/OSNecessidades';
+import MarketingPage from './marketing/pages/MarketingPage';
 
 export default function App() {
   // Theme & Collapse
@@ -333,6 +334,12 @@ export default function App() {
         if (data) {
           setNecessidades(data);
           localStorage.setItem(dbPrefix + 'necessidades', JSON.stringify(data));
+        }
+      }),
+      FirebaseService.auditoria_funcionarios.subscribe((data) => {
+        if (data) {
+          setLogsFuncionarios(data);
+          localStorage.setItem(dbPrefix + 'auditoria_funcionarios', JSON.stringify(data));
         }
       })
     ];
@@ -923,6 +930,7 @@ export default function App() {
       case 'equipamentos': return 'Equipamentos';
       case 'suporte': return 'Suporte Técnico';
       case 'necessidades': return 'Necessidades & Requisições';
+      case 'marketing': return '📈 Planos de Marketing';
       case 'auditoria': return 'Auditoria';
       case 'funcionarios': return 'Funcionários';
       case 'usuarios': return 'Gestão de Usuários';
@@ -937,6 +945,7 @@ export default function App() {
       case 'equipamentos': return 'Gerencie inventário, localização e status de ativos';
       case 'suporte': return 'Gerencie chamados e chamados de suporte técnico de TI';
       case 'necessidades': return 'Gerencie requisições de suprimentos, compras e almoxarifado';
+      case 'marketing': return 'Planeje, gerencie e acompanhe o crescimento e mídias da instituição escolar';
       case 'auditoria': return 'Visualize o histórico de alterações gerais de segurança';
       case 'funcionarios': return 'Gerencie escalas de ponto, contratações e dados cadastrais';
       case 'usuarios': return 'Controle de acessos, níveis de permissão e novos usuários';
@@ -946,7 +955,7 @@ export default function App() {
   };
 
   if (!isAuthenticated || !user) {
-    return <Login onLogin={handleLogin} users={users} />;
+    return <Login onLogin={handleLogin} users={users} onUpdateUsers={setUsers} />;
   }
 
   return (
@@ -1250,6 +1259,11 @@ export default function App() {
                   </button>
                 </div>
               )
+            )}
+
+            {/* Section: Planos de Marketing */}
+            {activeSection === 'marketing' && (
+              <MarketingPage />
             )}
 
             {/* Section: Configurações */}

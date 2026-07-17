@@ -198,7 +198,11 @@ export default function OSOrdensView({
 
   const handleAddEquipChange = (equipId: string) => {
     setSelectedEquipId(equipId);
-    if (equipId === 'none') return;
+    if (equipId === 'none') {
+      setAddCategory('');
+      setAddLocation('');
+      return;
+    }
     const equip = equipamentos.find(eq => eq.id === equipId);
     if (equip) {
       setAddCategory(equip.category);
@@ -289,7 +293,9 @@ export default function OSOrdensView({
       setEditingOS({
         ...editingOS,
         equipId: 'none',
-        equipName: 'Sem Equipamento Vinculado'
+        equipName: 'Sem Equipamento Vinculado',
+        category: '',
+        location: ''
       });
       return;
     }
@@ -999,7 +1005,7 @@ export default function OSOrdensView({
               {/* Row: Equipment Link & Category */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-300">Equipamento Vinculado *</label>
+                  <label className="text-xs font-semibold text-gray-300">Equipamento Vinculado (Opcional)</label>
                   <select
                     value={selectedEquipId}
                     onChange={(e) => handleAddEquipChange(e.target.value)}
@@ -1288,7 +1294,7 @@ export default function OSOrdensView({
               {/* Row: Equipment Link & Category */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-300">Equipamento Vinculado *</label>
+                  <label className="text-xs font-semibold text-gray-300">Equipamento Vinculado (Opcional)</label>
                   <select
                     value={editingOS.equipId}
                     onChange={(e) => handleEditEquipChange(e.target.value)}
@@ -1588,7 +1594,9 @@ export default function OSOrdensView({
                 <div>
                   <span className="text-gray-500 block uppercase font-bold text-[9px]">Equipamento</span>
                   <span className="font-bold text-white mt-0.5 block">{selectedOS.equipName}</span>
-                  <span className="text-[10px] text-gray-400 block mt-0.5">ID: {selectedOS.equipId}</span>
+                  {selectedOS.equipId !== 'none' && (
+                    <span className="text-[10px] text-gray-400 block mt-0.5">ID: {selectedOS.equipId}</span>
+                  )}
                 </div>
                 <div>
                   <span className="text-gray-500 block uppercase font-bold text-[9px]">Categoria</span>

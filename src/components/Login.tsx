@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
-import { LogIn, ShieldCheck, Mail, Lock, AlertCircle } from 'lucide-react';
+import { LogIn, ShieldCheck, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { User, UserSession } from '../types';
+import FirebaseService from '../services/FirebaseService';
 
 interface LoginProps {
   onLogin: (session: UserSession) => void;
   users: User[];
+  onUpdateUsers?: (users: User[]) => void;
 }
 
-export default function Login({ onLogin, users }: LoginProps) {
+export default function Login({ onLogin, users, onUpdateUsers }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const [schoolName, setSchoolName] = useState(() => {
     return localStorage.getItem('colegio_reacao_school_name') || 'Colégio Reação';
@@ -26,14 +29,34 @@ export default function Login({ onLogin, users }: LoginProps) {
 
   const [attempts, setAttempts] = useState(0);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    const user = users.find(u => u.email.trim().toLowerCase() === cleanEmail && u.password === cleanPassword);
+    let latestUsers = [...users];
+
+    // Ah and the password that he saves in Configurações must be the password to log in from any IP.
+    // Fetch latest users list directly from Firebase before checking credentials
+    if (FirebaseService.isConfigured()) {
+      try {
+        const remoteUsers = await FirebaseService.users.list();
+        if (remoteUsers && remoteUsers.length > 0) {
+          latestUsers = remoteUsers;
+          if (onUpdateUsers) {
+            onUpdateUsers(remoteUsers);
+          }
+          localStorage.setItem('colegio_reacao_users', JSON.stringify(remoteUsers));
+        }
+      } catch (err) {
+        console.warn('[Login Remote Fetch] Could not fetch latest users from Firestore, using local cache:', err);
+      }
+    }
+
+    const user = latestUsers.find(u => u.email.trim().toLowerCase() === cleanEmail && u.password === cleanPassword);
 
     if (user) {
       onLogin({
@@ -43,13 +66,14 @@ export default function Login({ onLogin, users }: LoginProps) {
       });
     } else {
       setAttempts(prev => prev + 1);
-      const emailExists = users.some(u => u.email.trim().toLowerCase() === cleanEmail);
+      const emailExists = latestUsers.some(u => u.email.trim().toLowerCase() === cleanEmail);
       if (!emailExists) {
-        setError(`E-mail não encontrado. O sistema possui ${users.length} usuários cadastrados.`);
+        setError(`E-mail não encontrado. O sistema possui ${latestUsers.length} usuários cadastrados.`);
       } else {
         setError('Senha incorreta para este e-mail. Tente novamente.');
       }
     }
+    setLoading(false);
   };
 
   return (
@@ -84,14 +108,6 @@ export default function Login({ onLogin, users }: LoginProps) {
                   <AlertCircle size={16} />
                   {error}
                 </div>
-                {attempts >= 2 && (
-                  <div className="mt-2 pt-2 border-t border-red-500/20 text-[10px] text-gray-400">
-                    <p className="font-bold mb-1 uppercase tracking-wider">Dica de Acesso:</p>
-                    <p>Se este é seu primeiro acesso nesta URL:</p>
-                    <p>E-mail: <span className="text-white">mecanografia@colegioreacaodf.com</span></p>
-                    <p>Senha: <span className="text-white">admin</span></p>
-                  </div>
-                )}
               </div>
             )}
 
@@ -103,10 +119,11 @@ export default function Login({ onLogin, users }: LoginProps) {
               <input
                 type="email"
                 required
+                disabled={loading}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nome@exemplo.com"
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f5c518] transition-all"
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f5c518] transition-all disabled:opacity-50"
               />
             </div>
 
@@ -118,19 +135,30 @@ export default function Login({ onLogin, users }: LoginProps) {
               <input
                 type="password"
                 required
+                disabled={loading}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f5c518] transition-all"
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#f5c518] transition-all disabled:opacity-50"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full bg-[#f5c518] hover:bg-[#e2b516] text-black font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-[#f5c518]/10 flex items-center justify-center gap-2 mt-2 cursor-pointer"
+              disabled={loading}
+              className="w-full bg-[#f5c518] hover:bg-[#e2b516] text-black font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-[#f5c518]/10 flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <LogIn size={18} />
-              Entrar no Sistema
+              {loading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Verificando...
+                </>
+              ) : (
+                <>
+                  <LogIn size={18} />
+                  Entrar no Sistema
+                </>
+              )}
             </button>
 
             <div className="flex items-center gap-4 my-2">
@@ -141,8 +169,9 @@ export default function Login({ onLogin, users }: LoginProps) {
 
             <button
               type="button"
+              disabled={loading}
               onClick={handleGuestLogin}
-              className="w-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-bold py-3 rounded-xl transition-all border border-white/10 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-bold py-3 rounded-xl transition-all border border-white/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <ShieldCheck size={18} />
               Entrar como Convidado
