@@ -310,12 +310,21 @@ export default function MktInstagramConnectionComponent({
   };
 
   const handleConnect = () => {
-    if (mode === 'production' && (!appId || !appSecret)) {
-      setStatusMessage({ 
-        type: 'error', 
-        text: 'Erro: Por favor, insira o App ID e App Secret nas configurações para usar o modo Real (API).' 
-      });
-      return;
+    if (mode === 'production') {
+      if (!appId || !/^\d+$/.test(appId)) {
+        setStatusMessage({ 
+          type: 'error', 
+          text: 'Erro: O App ID deve ser um número válido fornecido pelo painel Meta for Developers.' 
+        });
+        return;
+      }
+      if (!appSecret) {
+        setStatusMessage({ 
+          type: 'error', 
+          text: 'Erro: Por favor, insira o App Secret para autenticação de servidor.' 
+        });
+        return;
+      }
     }
 
     // Construct authorization URL
@@ -873,10 +882,14 @@ export default function MktInstagramConnectionComponent({
                   <input
                     type="text"
                     value={appId}
-                    onChange={(e) => setAppId(e.target.value)}
+                    onChange={(e) => setAppId(e.target.value.replace(/\D/g, ''))}
                     placeholder="Ex: 582918529185291"
-                    className="w-full bg-[#1e1e22] border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#f5c518] font-mono"
+                    className={`w-full bg-[#1e1e22] border ${appId && !/^\d+$/.test(appId) ? 'border-rose-500' : 'border-white/10'} rounded-lg p-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#f5c518] font-mono`}
                   />
+                  {appId && !/^\d+$/.test(appId) && (
+                    <span className="text-[9px] text-rose-400 font-bold">O ID deve conter apenas números.</span>
+                  )}
+                  <span className="text-[9px] text-gray-500">Localizado no topo do seu painel na Meta.</span>
                 </div>
 
                 <div className="space-y-1">
