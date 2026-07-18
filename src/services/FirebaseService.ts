@@ -54,7 +54,8 @@ import {
   MktCalendario,
   MktIdeia,
   MktRelatorio,
-  MktMeta
+  MktMeta,
+  MktInstagramConnection
 } from '../marketing/types';
 
 // ==========================================
@@ -423,7 +424,8 @@ export const FirebaseService = {
   mkt_calendario: createCollectionService<MktCalendario>('mkt_calendario'),
   mkt_ideias: createCollectionService<MktIdeia>('mkt_ideias'),
   mkt_relatorios: createCollectionService<MktRelatorio>('mkt_relatorios'),
-  mkt_metas: createCollectionService<MktMeta>('mkt_metas')
+  mkt_metas: createCollectionService<MktMeta>('mkt_metas'),
+  mkt_instagram_connections: createCollectionService<MktInstagramConnection>('mkt_instagram_connections')
 };
 
 export default FirebaseService;

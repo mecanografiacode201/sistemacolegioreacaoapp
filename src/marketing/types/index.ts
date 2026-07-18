@@ -119,3 +119,23 @@ export interface MktMeta {
   targetLeads: number;
   targetEnrollments: number;
 }
+
+export interface MktInstagramConnection {
+  id: string;
+  accountId: string;
+  username: string;
+  displayName: string;
+  profilePictureUrl?: string;
+  accessToken: string;
+  connectedAt: string;
+  expiresAt: string;
+  followersCount: number;
+  reach: number;
+  engagementRate: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+  status: 'active' | 'expired';
+}
+

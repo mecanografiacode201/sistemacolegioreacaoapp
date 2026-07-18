@@ -54,8 +54,39 @@ import UserManagement from './components/UserManagement';
 import Login from './components/Login';
 import OSNecessidades from './components/OSNecessidades';
 import MarketingPage from './marketing/pages/MarketingPage';
+import MktOAuthSimulatePopup from './marketing/components/MktOAuthSimulatePopup';
 
 export default function App() {
+  // Check if we are in the simulated OAuth popup window
+  const params = new URLSearchParams(window.location.search);
+  const isSimulatedOAuth = params.get('oauth_simulate') === 'true';
+  const simulatedProfile = params.get('profile') || '@colegioreacao';
+
+  // Also check if we are in a real Facebook redirect popup window
+  const hasCode = params.has('code');
+  const hasState = params.get('state') === 'instagram';
+
+  useEffect(() => {
+    if (hasCode && hasState && window.opener) {
+      const code = params.get('code');
+      window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', code }, '*');
+      window.close();
+    }
+  }, [hasCode, hasState]);
+
+  if (isSimulatedOAuth) {
+    return <MktOAuthSimulatePopup profile={simulatedProfile} />;
+  }
+
+  if (hasCode && hasState && window.opener) {
+    return (
+      <div className="min-h-screen bg-[#0f0f12] text-white flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-10 h-10 border-4 border-[#f5c518] border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-xs font-mono text-gray-400">Autenticando com Instagram... Esta janela fechará automaticamente.</p>
+      </div>
+    );
+  }
+
   // Theme & Collapse
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [collapsed, setCollapsed] = useState(false);

@@ -9,7 +9,8 @@ import {
   Target, 
   PlusCircle, 
   TrendingUp, 
-  Loader2 
+  Loader2,
+  Instagram
 } from 'lucide-react';
 
 import { useMarketingData } from '../hooks/useMarketingData';
@@ -23,6 +24,7 @@ import MktCalendarioTab from '../components/MktCalendarioTab';
 import MktIdeiasTab from '../components/MktIdeiasTab';
 import MktRelatoriosTab from '../components/MktRelatoriosTab';
 import MktMetasTab from '../components/MktMetasTab';
+import MktInstagramConnectionComponent from '../components/MktInstagramConnection';
 
 export default function MarketingPage() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -81,6 +83,7 @@ export default function MarketingPage() {
     { id: 'ideias', label: 'Banco de Ideias', icon: Lightbulb },
     { id: 'relatorios', label: 'Relatórios / Métricas', icon: PlusCircle },
     { id: 'metas', label: 'Metas (KPIs)', icon: Target },
+    { id: 'instagram', label: 'Conexão Instagram (API)', icon: Instagram },
   ];
 
   return (
@@ -185,6 +188,13 @@ export default function MarketingPage() {
             onAdd={addMeta}
             onEdit={editMeta}
             onDelete={deleteMeta}
+          />
+        )}
+
+        {activeTab === 'instagram' && (
+          <MktInstagramConnectionComponent
+            onAddRelatorio={addRelatorio}
+            relatorios={relatorios}
           />
         )}
       </div>
