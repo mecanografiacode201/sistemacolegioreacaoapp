@@ -92,6 +92,10 @@ export default function OSOrdensView({
 
   // Complete Form cost state
   const [completionCost, setCompletionCost] = useState('0');
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completingOS, setCompletingOS] = useState<OrdemServico | null>(null);
+  const [completionObservations, setCompletionObservations] = useState('');
+  const [completionPhotoUrl, setCompletionPhotoUrl] = useState('');
 
   // Webcam Camera Stream and Capture References
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -132,6 +136,8 @@ export default function OSOrdensView({
         const dataUrl = canvas.toDataURL('image/jpeg');
         if (showEditModal && editingOS) {
           setEditingOS({ ...editingOS, photoUrl: dataUrl });
+        } else if (showCompleteModal) {
+          setCompletionPhotoUrl(dataUrl);
         } else {
           setAddPhotoUrl(dataUrl);
         }
@@ -245,21 +251,37 @@ export default function OSOrdensView({
 
   const handleStatusTransition = (os: OrdemServico, nextStatus: OrdemServico['status']) => {
     if (nextStatus === 'concluido') {
-      const costPrompt = prompt('Digite o custo final da manutenção em R$:', os.cost.toString());
-      if (costPrompt === null) return; // cancel
-      const finalCost = parseFloat(costPrompt.replace(',', '.')) || 0;
-      onUpdateOS({
-        ...os,
-        status: 'concluido',
-        cost: finalCost,
-        closingDate: new Date().toLocaleDateString('pt-BR')
-      });
+      setCompletingOS(os);
+      setCompletionCost(os.cost ? os.cost.toString() : '0');
+      setCompletionObservations('');
+      setCompletionPhotoUrl('');
+      setShowCompleteModal(true);
     } else {
       onUpdateOS({
         ...os,
         status: nextStatus
       });
     }
+  };
+
+  const handleCompleteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!completingOS) return;
+
+    const finalCost = parseFloat(completionCost.replace(',', '.')) || 0;
+
+    onUpdateOS({
+      ...completingOS,
+      status: 'concluido',
+      cost: finalCost,
+      closingObservations: completionObservations.trim(),
+      closingPhotoUrl: completionPhotoUrl,
+      closingDate: new Date().toLocaleDateString('pt-BR')
+    });
+
+    stopCamera();
+    setShowCompleteModal(false);
+    setCompletingOS(null);
   };
 
   // Edit OS Handlers
@@ -1622,37 +1644,61 @@ export default function OSOrdensView({
                 </div>
               </div>
 
-              {/* Problem Description */}
-              <div className="space-y-1">
-                <span className="text-gray-500 uppercase font-bold text-[9px] block">Problema Relatado</span>
-                <div className="bg-black/30 border border-white/5 p-3 rounded text-gray-200 leading-relaxed font-sans text-xs">
-                  {selectedOS.problemDescription}
+              {/* Problem Description & Completion Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-gray-500 uppercase font-bold text-[9px] block">Problema Relatado</span>
+                  <div className="bg-[#0f0f11] border border-white/5 p-3 rounded text-gray-200 leading-relaxed font-sans text-xs h-full min-h-[70px]">
+                    {selectedOS.problemDescription}
+                  </div>
+                </div>
+                
+                <div className="space-y-1">
+                  <span className="text-emerald-500 uppercase font-bold text-[9px] block">Relatório de Conclusão / Solução</span>
+                  <div className="bg-[#0f110f] border border-emerald-500/15 p-3 rounded text-emerald-100 leading-relaxed font-sans text-xs h-full min-h-[70px]">
+                    {selectedOS.closingObservations || (selectedOS.status === 'concluido' ? 'Nenhuma observação informada.' : 'Ordem de serviço ainda em andamento.')}
+                  </div>
                 </div>
               </div>
 
-              {/* Observations */}
+              {/* Initial Observations */}
               {selectedOS.observations && (
                 <div className="space-y-1">
-                  <span className="text-gray-500 uppercase font-bold text-[9px] block">Observações Adicionais</span>
-                  <div className="bg-black/30 border border-white/5 p-3 rounded text-gray-400 leading-relaxed font-sans text-xs italic">
+                  <span className="text-gray-500 uppercase font-bold text-[9px] block">Observações Adicionais (Abertura)</span>
+                  <div className="bg-[#0f0f11] border border-white/5 p-3 rounded text-gray-400 leading-relaxed font-sans text-xs italic">
                     {selectedOS.observations}
                   </div>
                 </div>
               )}
 
-              {/* Equip/Problem Photo */}
-              {selectedOS.photoUrl && (
-                <div className="space-y-1.5">
-                  <span className="text-gray-500 uppercase font-bold text-[9px] block">Foto do Equipamento com Defeito</span>
-                  <div className="bg-black/40 p-2 rounded-lg border border-white/5">
-                    <img 
-                      src={selectedOS.photoUrl} 
-                      className="w-full max-h-52 object-contain rounded bg-black" 
-                      alt="Defeito do equipamento" 
-                    />
+              {/* Photo Comparison (Before / After) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {selectedOS.photoUrl && (
+                  <div className="space-y-1.5">
+                    <span className="text-gray-500 uppercase font-bold text-[9px] block">Foto do Defeito (Antes)</span>
+                    <div className="bg-[#0f0f11] p-2 rounded-lg border border-white/5">
+                      <img 
+                        src={selectedOS.photoUrl} 
+                        className="w-full max-h-44 object-contain rounded bg-black" 
+                        alt="Defeito do equipamento" 
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {selectedOS.closingPhotoUrl && (
+                  <div className="space-y-1.5">
+                    <span className="text-emerald-500 uppercase font-bold text-[9px] block">Foto do Serviço Concluído (Depois)</span>
+                    <div className="bg-[#0f110f] p-2 rounded-lg border border-emerald-500/10">
+                      <img 
+                        src={selectedOS.closingPhotoUrl} 
+                        className="w-full max-h-44 object-contain rounded bg-black" 
+                        alt="Serviço concluído" 
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Technician, Dates and Costs */}
               <div className="grid grid-cols-3 gap-3 bg-black/10 p-3 rounded-lg border border-white/5">
@@ -1793,6 +1839,196 @@ export default function OSOrdensView({
                 Sim, Deletar OS
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom OS Completion Modal */}
+      {showCompleteModal && completingOS && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 text-left animate-fade-in">
+          <div className="bg-[#18181b] rounded-xl border border-white/10 w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-4 bg-black/20 border-b border-b-white/5 shrink-0">
+              <div className="flex items-center gap-2">
+                <CheckCircle size={18} className="text-emerald-400" />
+                <h2 className="font-display font-bold text-white text-base">
+                  Concluir Ordem: <span className="font-mono text-[#f5c518]">{completingOS.id}</span>
+                </h2>
+              </div>
+              <button 
+                onClick={() => {
+                  stopCamera();
+                  setShowCompleteModal(false);
+                  setCompletingOS(null);
+                }} 
+                className="text-gray-400 hover:text-white cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCompleteSubmit} className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+              
+              <div className="bg-[#1e1e24] p-3.5 rounded-lg border border-white/5 space-y-1">
+                <span className="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Serviço Realizado</span>
+                <h4 className="text-xs font-bold text-white">{completingOS.title || 'Solicitação'}</h4>
+                <p className="text-[11px] text-gray-400 line-clamp-2 mt-1">{completingOS.problemDescription}</p>
+              </div>
+
+              {/* Row: Final Cost */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-300">Custo Final da Manutenção *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500 text-sm">R$</span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="0,00"
+                    value={completionCost}
+                    onChange={(e) => setCompletionCost(e.target.value)}
+                    className="w-full bg-[#0a0a0c] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
+                  />
+                </div>
+                <span className="text-[10px] text-gray-500 block">Insira o valor real gasto com peças, materiais ou mão de obra.</span>
+              </div>
+
+              {/* Row: Completion Observations */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-300">Relatório de Conclusão / Observações *</label>
+                <textarea
+                  required
+                  placeholder="Descreva detalhadamente o que foi feito para solucionar o defeito (ex: trocado reator queimado, reinstalado cabos...)"
+                  value={completionObservations}
+                  onChange={(e) => setCompletionObservations(e.target.value)}
+                  rows={3}
+                  className="w-full bg-[#0a0a0c] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 transition-all custom-scrollbar"
+                />
+              </div>
+
+              {/* Photo Upload or Capture for Completion */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-300 flex items-center gap-1">
+                  <Camera size={13} className="text-emerald-400" />
+                  Foto do Serviço Concluído (Comprovante)
+                </label>
+
+                {completionPhotoUrl ? (
+                  <div className="relative group bg-black/40 p-2 rounded-lg border border-white/10">
+                    <img 
+                      src={completionPhotoUrl} 
+                      className="w-full h-44 object-contain rounded-lg bg-black" 
+                      alt="Serviço concluído" 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCompletionPhotoUrl('')}
+                      className="absolute top-4 right-4 bg-red-600 hover:bg-red-700 text-white p-2 rounded-full shadow-lg transition-all cursor-pointer"
+                      title="Excluir Foto"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    <span className="text-[10px] text-gray-400 text-center block mt-1">Foto da conclusão adicionada ao sistema</span>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {isCapturing ? (
+                      <div className="border border-emerald-500/30 rounded-lg overflow-hidden bg-black flex flex-col items-center p-3 gap-3">
+                        <video 
+                          ref={videoRef} 
+                          className="w-full h-44 object-cover bg-black rounded-md" 
+                          autoPlay 
+                          playsInline 
+                          muted 
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={capturePhoto}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-all"
+                          >
+                            <CheckCircle size={13} />
+                            Capturar Foto
+                          </button>
+                          <button
+                            type="button"
+                            onClick={stopCamera}
+                            className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-all"
+                          >
+                            <X size={13} />
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        
+                        {/* Native/Local File Selection */}
+                        <label 
+                          htmlFor="complete-photo-file" 
+                          className="flex-1 flex flex-col items-center justify-center p-4 bg-black/30 hover:bg-black/50 border border-dashed border-white/10 hover:border-emerald-500/40 rounded-lg cursor-pointer transition-all gap-1.5 group"
+                        >
+                          <input 
+                            type="file" 
+                            id="complete-photo-file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setCompletionPhotoUrl(reader.result as string);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                          <Upload size={16} className="text-gray-400 group-hover:text-emerald-400 transition-all" />
+                          <div className="text-center">
+                            <span className="text-[11px] text-gray-300 font-bold block">Upload da Foto de Entrega</span>
+                            <span className="text-[9px] text-gray-500 block">PNG, JPG de até 5MB</span>
+                          </div>
+                        </label>
+
+                        {/* Webcam Capture Activation */}
+                        <button
+                          type="button"
+                          onClick={startCamera}
+                          className="flex-1 flex flex-col items-center justify-center p-4 bg-black/30 hover:bg-black/50 border border-dashed border-white/10 hover:border-emerald-500/40 rounded-lg cursor-pointer transition-all gap-1.5 group"
+                        >
+                          <Camera size={16} className="text-emerald-400 group-hover:scale-110 transition-all" />
+                          <div className="text-center">
+                            <span className="text-[11px] text-emerald-400 font-bold block">Tirar Foto com a Câmera</span>
+                            <span className="text-[9px] text-gray-500 block">Ativar câmera traseira ou frontal</span>
+                          </div>
+                        </button>
+
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Form Buttons */}
+              <div className="pt-2 border-t border-white/5 flex justify-end gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopCamera();
+                    setShowCompleteModal(false);
+                    setCompletingOS(null);
+                  }}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-300 hover:bg-white/5 border border-white/10 transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 transition-all cursor-pointer shadow-md shadow-emerald-500/10"
+                >
+                  Finalizar Ordem de Serviço
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

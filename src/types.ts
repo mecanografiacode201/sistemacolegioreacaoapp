@@ -39,6 +39,8 @@ export interface OrdemServico {
   requester?: string; // Solicitante da OS
   observations?: string; // Observações
   photoUrl?: string; // Foto do equipamento com defeito
+  closingPhotoUrl?: string; // Foto do serviço concluído
+  closingObservations?: string; // Observações de conclusão
   history?: {
     date: string;
     action: string;
