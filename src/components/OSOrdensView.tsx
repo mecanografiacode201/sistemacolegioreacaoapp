@@ -26,7 +26,8 @@ import {
   RotateCcw,
   Camera,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Folder
 } from 'lucide-react';
 import { OrdemServico, Equipamento } from '../types';
 import OSDashboard from './OSDashboard';
@@ -67,7 +68,6 @@ export default function OSOrdensView({
   const [selectedOS, setSelectedOS] = useState<OrdemServico | null>(null);
   const [editingOS, setEditingOS] = useState<OrdemServico | null>(null);
   const [deleteConfirmOS, setDeleteConfirmOS] = useState<OrdemServico | null>(null);
-  const [unarchiveConfirmOS, setUnarchiveConfirmOS] = useState<OrdemServico | null>(null);
   const [deletePermanentConfirmOS, setDeletePermanentConfirmOS] = useState<OrdemServico | null>(null);
 
   // Archive state
@@ -162,9 +162,6 @@ export default function OSOrdensView({
     if (activeSubTab === 'ordens') {
       // Show active (Aberto, Em Andamento, Concluido not archived)
       list = list.filter(o => o.status !== 'arquivado');
-    } else if (activeSubTab === 'arquivo') {
-      // Show only archived
-      list = list.filter(o => o.status === 'arquivado');
     }
 
     // Filters & search
@@ -350,12 +347,39 @@ export default function OSOrdensView({
     return `${monthName} de ${year}`;
   };
 
-  // Group archived orders by month
-  const archivedByMonth = useMemo(() => {
-    const groups: { [key: string]: OrdemServico[] } = {};
-    const archivedList = ordens.filter(o => o.status === 'arquivado');
+  // Sort month keys chronologically (Latest year/month first)
+  const sortMonthKeysChronologically = (keys: string[]) => {
+    const months = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
     
-    archivedList.forEach(o => {
+    return [...keys].sort((a, b) => {
+      if (a === 'Mês Indefinido') return 1;
+      if (b === 'Mês Indefinido') return -1;
+      
+      const partsA = a.split(' de ');
+      const partsB = b.split(' de ');
+      
+      const yearA = parseInt(partsA[1], 10) || 0;
+      const yearB = parseInt(partsB[1], 10) || 0;
+      
+      if (yearA !== yearB) {
+        return yearB - yearA; // Latest year first
+      }
+      
+      const monthIndexA = months.indexOf(partsA[0]);
+      const monthIndexB = months.indexOf(partsB[0]);
+      
+      return monthIndexB - monthIndexA; // Latest month first
+    });
+  };
+
+  // Group all orders by month/year
+  const ordensByMonth = useMemo(() => {
+    const groups: { [key: string]: OrdemServico[] } = {};
+    
+    ordens.forEach(o => {
       const monthYear = getMonthYearString(o.openingDate);
       if (!groups[monthYear]) {
         groups[monthYear] = [];
@@ -636,15 +660,7 @@ export default function OSOrdensView({
                               </button>
                             )}
 
-                            {os.status === 'concluido' && activeSubTab === 'ordens' && (
-                              <button
-                                onClick={() => onUpdateOS({ ...os, status: 'arquivado' })}
-                                className="p-1 bg-gray-500/15 text-gray-400 hover:bg-white/10 rounded text-[10px] px-2 font-semibold transition-all cursor-pointer"
-                                title="Arquivar OS"
-                              >
-                                Arquivar
-                              </button>
-                            )}
+
 
                             {(userRole === 'admin' || userRole === 'super_admin') && (
                               <button
@@ -686,10 +702,10 @@ export default function OSOrdensView({
             <div>
               <h2 className="text-lg font-bold flex items-center gap-2 text-white">
                 <span className="w-1 h-6 bg-[#f5c518] rounded-full"></span>
-                Arquivo Histórico Mensal
+                Pastas de Ordens de Serviço por Período
               </h2>
               <p className="text-xs text-[#a1a1aa] mt-1 ml-3">
-                Ordens de serviço arquivadas agrupadas cronologicamente por mês de registro para prestação de contas
+                Todas as ordens de serviço agrupadas em pastas cronológicas por mês e ano de abertura
               </p>
             </div>
             <button
@@ -698,28 +714,25 @@ export default function OSOrdensView({
                 setTimeout(() => window.print(), 100);
               }}
               className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-md shrink-0"
-              title="Exportar a lista atual de arquivados como PDF / Relatório Imprimível"
+              title="Exportar a lista atual de ordens como PDF / Relatório Imprimível"
             >
               <Printer size={14} className="text-[#f5c518]" />
               Exportar PDF / Relatório
             </button>
           </div>
 
-          {Object.keys(archivedByMonth).length === 0 ? (
+          {Object.keys(ordensByMonth).length === 0 ? (
             <div className="bg-[#18181b] p-16 text-center space-y-3 rounded-xl border border-white/10">
-              <Calendar size={32} className="mx-auto text-gray-600" />
-              <h3 className="text-sm font-semibold text-gray-300">Nenhum registro arquivado</h3>
+              <Folder size={32} className="mx-auto text-gray-600" />
+              <h3 className="text-sm font-semibold text-gray-300">Nenhuma pasta encontrada</h3>
               <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                As ordens de serviço concluídas que forem arquivadas serão agrupadas por mês e salvas de forma segura nesta seção.
+                As ordens de serviço criadas serão organizadas automaticamente em pastas por mês e ano.
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {Object.keys(archivedByMonth).sort((a, b) => {
-                // simple chronological sort helper (reverse)
-                return b.localeCompare(a);
-              }).map(monthKey => {
-                const monthOrdens = archivedByMonth[monthKey];
+              {sortMonthKeysChronologically(Object.keys(ordensByMonth)).map(monthKey => {
+                const monthOrdens = ordensByMonth[monthKey];
                 const totalCost = monthOrdens.reduce((sum, o) => sum + o.cost, 0);
                 const isExpanded = openMonth === monthKey;
 
@@ -729,16 +742,16 @@ export default function OSOrdensView({
                     {/* Month Header row */}
                     <button
                       onClick={() => setOpenMonth(isExpanded ? null : monthKey)}
-                      className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-black/20 hover:bg-black/40 gap-3 text-left transition-all"
+                      className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-black/20 hover:bg-black/40 gap-3 text-left transition-all cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-[#f5c518]/10 text-[#f5c518] rounded-lg border border-[#f5c518]/20">
-                          <Calendar size={16} />
+                          <Folder size={16} className="text-[#f5c518]" />
                         </div>
                         <div>
                           <h3 className="font-bold text-sm text-white">{monthKey}</h3>
                           <span className="text-[10px] text-gray-400 font-medium block mt-0.5">
-                            {monthOrdens.length} {monthOrdens.length === 1 ? 'Ordem arquivada' : 'Ordens arquivadas'}
+                            {monthOrdens.length} {monthOrdens.length === 1 ? 'Ordem de Serviço' : 'Ordens de Serviço'}
                           </span>
                         </div>
                       </div>
@@ -780,6 +793,7 @@ export default function OSOrdensView({
                                 <th className="p-3">Código</th>
                                 <th className="p-3">Equipamento</th>
                                 <th className="p-3">Categoria</th>
+                                <th className="p-3">Status</th>
                                 <th className="p-3">Responsável</th>
                                 <th className="p-3">Abertura</th>
                                 <th className="p-3">Custo</th>
@@ -799,6 +813,14 @@ export default function OSOrdensView({
                                   <td className="p-3">
                                     <span className="bg-white/5 px-1.5 py-0.2 rounded text-gray-400 text-[10px]">{os.category}</span>
                                   </td>
+                                  <td className="p-3">
+                                    <div className="flex flex-col items-start gap-1">
+                                      {getStatusBadge(os.status)}
+                                      <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold uppercase border ${getPriorityColor(os.priority)}`}>
+                                        {os.priority}
+                                      </span>
+                                    </div>
+                                  </td>
                                   <td className="p-3 font-medium text-gray-300">{os.responsible}</td>
                                   <td className="p-3 text-gray-400">{os.openingDate}</td>
                                   <td className="p-3 font-mono font-bold text-white">R$ {os.cost.toFixed(2)}</td>
@@ -816,11 +838,11 @@ export default function OSOrdensView({
                                       </button>
                                       
                                       <button
-                                        onClick={() => setUnarchiveConfirmOS(os)}
+                                        onClick={() => handleOpenEdit(os)}
                                         className="p-1 text-gray-400 hover:text-[#f5c518] hover:bg-white/5 rounded transition-all cursor-pointer"
-                                        title="Desarquivar OS"
+                                        title="Editar Ordem de Serviço"
                                       >
-                                        <RotateCcw size={12} />
+                                        <Edit2 size={12} />
                                       </button>
 
                                       {(userRole === 'admin' || userRole === 'super_admin') && (
@@ -1779,37 +1801,7 @@ export default function OSOrdensView({
         </div>
       )}
 
-      {/* Custom OS Unarchive Confirmation Modal */}
-      {unarchiveConfirmOS && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 text-left animate-fade-in">
-          <div className="bg-[#18181b] border border-white/10 rounded-xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 text-[#f5c518]">
-              <AlertTriangle size={24} />
-              <h3 className="font-bold text-base text-white">Desarquivar Ordem de Serviço</h3>
-            </div>
-            <p className="text-xs text-gray-300 leading-relaxed">
-              Deseja desarquivar a OS <strong className="text-white font-mono">{unarchiveConfirmOS.id}</strong>? Ela retornará imediatamente para a lista de Ordens de Serviço Ativas.
-            </p>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setUnarchiveConfirmOS(null)}
-                className="px-3.5 py-1.5 text-xs font-semibold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-all cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
-                  onUpdateOS({ ...unarchiveConfirmOS, status: 'concluido' });
-                  setUnarchiveConfirmOS(null);
-                }}
-                className="px-3.5 py-1.5 text-xs font-semibold bg-[#f5c518] hover:bg-amber-400 text-black rounded-lg transition-all cursor-pointer"
-              >
-                Desarquivar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Custom OS Permanent Deletion Confirmation Modal */}
       {deletePermanentConfirmOS && (
